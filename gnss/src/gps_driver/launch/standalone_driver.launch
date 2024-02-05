@@ -1,0 +1,8 @@
+<launch>
+    <arg name="port" default="/dev/ttyUSB0"/>
+    <arg name="baud" default="4800" />
+    <arg name="sample" default="5.0" />
+    <node name="driver" pkg="gps_driver" type="standalone_driver.py" output="screen">
+    	<param name="port" type="string" value="/dev/ttyUSB0"/>
+    </node>
+</launch>
