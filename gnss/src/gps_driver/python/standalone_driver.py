@@ -19,7 +19,7 @@ def latdegMinstoDeg(latitude):
     return deg + degDec
 
 def longdegMinstoDeg(longitude):
-    if len(longitude):
+    if len(longitude>9):
         deg = int(longitude[:3])
         mins = float(longitude[3:])
     else:
