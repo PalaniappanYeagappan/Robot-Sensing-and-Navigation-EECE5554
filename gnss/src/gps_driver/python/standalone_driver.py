@@ -52,6 +52,7 @@ def parse_line(line, publisher):
     if line.startswith("$GPGGA"):
         custom_gps_msg.gpgga_read = line.strip()
         data = line.split(",")
+        rospy.loginfo(data)
         if not data[2]:
             rospy.logwarn("Warning: GPS puck is unable to receive data")
         else:
