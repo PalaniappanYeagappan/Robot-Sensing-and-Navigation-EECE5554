@@ -1,4 +1,4 @@
-#Collaborated with Yogeshwaran Easwaran,Sai Sreekar KS, ShivaKumar Dhandapani and Poojith Madineni
+#Collaborated with Yogeshwaran Easwaran,Sai Sreekar KS, Shiva Kumar Dhandapani and Poojith Maddineni
 #!/usr/bin/env python3
 
 import time
