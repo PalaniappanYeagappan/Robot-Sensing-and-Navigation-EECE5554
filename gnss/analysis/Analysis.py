@@ -1,4 +1,4 @@
-#Collaborated with Yogeshwaran Easwaran,Sai Sreekar KS, Shiva Kumar Dhandapani
+#Collaborated with Yogeshwaran Eswaran,Sai Sreekar KS, Shiva Kumar Dhandapani
 #!/usr/bin/env python3
 
 import rosbag
