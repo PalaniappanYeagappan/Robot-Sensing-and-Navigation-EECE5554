@@ -1,26 +1,23 @@
 #Collaborated with Yogeshwaran Eswaran,Sai Sreekar KS, Shiva Kumar Dhandapani and Poojith Maddineni
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
-import time
 import rospy
 import serial
-import sys
-from datetime import date
 import utm
 from gps_driver.msg import Customgps
 from std_msgs.msg import Header
+import math
+import time
+from datetime import datetime, timezone
 
-date_format = '%d%m%Y%H%M%S.%f'
-custom_gps_msg = Customgps()
-
-def latdegMinstoDeg(latitude):
+def lat_degMinstoDec(latitude):
     deg = int(latitude[:2])
     mins = float(latitude[2:])
     degDec = mins / 60
     return deg + degDec
 
-def longdegMinstoDeg(longitude):
-    if len(longitude>9):
+def long_degMinstoDec(longitude):
+    if len(longitude) > 9:
         deg = int(longitude[:3])
         mins = float(longitude[3:])
     else:
@@ -29,81 +26,78 @@ def longdegMinstoDeg(longitude):
     degDec = mins / 60
     return deg + degDec
 
-def LatLongSignConvetion(LatOrLong, LatOrLongDir):
-    if LatOrLongDir == "S" or LatOrLongDir =="W" :
-        LatOrLong *= -1
-    return LatOrLong
+def LatLongSign(LatLong, LatLongDir):
+    if LatLongDir == "S" or LatLongDir == "W":
+        LatLong *= -1
+    return LatLong
 
 def convertToUTM(LatitudeSigned, LongitudeSigned):
-    UTMVals = utm.from_latlon(float(LatitudeSigned), float(LongitudeSigned))
-    UTMEasting, UTMNorthing, UTMZone, UTMLetter = UTMVals
-    return [UTMEasting, UTMNorthing, UTMZone, UTMLetter]
+    UTM_Vals = utm.from_latlon(float(LatitudeSigned), float(LongitudeSigned))
+    UTM_Easting, UTM_Northing, UTM_Zone, UTM_Letter = UTM_Vals
+    return [UTM_Easting, UTM_Northing, UTM_Zone, UTM_Letter]
 
 def UTCtoUTCEpoch(UTC):
-    UTC = float(UTC)
-    UTCinSecs = (UTC // 10000) * 3600 + ((UTC % 10000) // 100) * 60 + (UTC % 100)
-    CurrentTime = time.time()
-    TimeSinceEpochBOD = CurrentTime - UTCinSecs
-    CurrentTimeSec = int(TimeSinceEpochBOD)
-    CurrentTimeNsec = (TimeSinceEpochBOD - CurrentTimeSec) * 1e9
+    UTC = str(UTC)
+    hours = int(UTC[0:2])
+    minutes = int(UTC[2:4])
+    seconds = float(UTC[4:])
+    UTCinSecs = hours * 3600 + minutes * 60 + seconds
+    TimeSinceEpoch = time.time()
+    UTCinSecs = float(UTC)
+    TimeSinceEpochBOD = float(TimeSinceEpoch - UTCinSecs)
+    CurrentTime = TimeSinceEpochBOD + UTCinSecs
+    CurrentTimeSec = int(CurrentTime)
+    CurrentTimeNsec = float((CurrentTime - CurrentTimeSec) * 1e9)
+
     return [CurrentTimeSec, CurrentTimeNsec]
 
-def parse_line(line, publisher):
-    global custom_gps_msg
-    if line.startswith("$GPGGA"):
-        custom_gps_msg.gpgga_read = line.strip()
-        data = line.split(",")
-        rospy.loginfo(data)
-        if not data[2]:
-            rospy.logwarn("Warning: GPS puck is unable to receive data")
-        else:
-            custom_gps_msg.hdop = float(data[8])
-            process_data(data)
-            publisher.publish(custom_gps_msg)
-
-def process_data(data):
-    global custom_gps_msg
-    epoch_time = UTCtoUTCEpoch(data[1])
-    custom_gps_msg.header.stamp.secs = epoch_time[0]
-    custom_gps_msg.header.stamp.nsecs = epoch_time[1]
-    custom_gps_msg.latitude = LatLongSignConvetion(latdegMinstoDeg(data[2]), data[3])
-    custom_gps_msg.longitude = LatLongSignConvetion(longdegMinstoDeg(data[4]), data[5])
-    custom_gps_msg.altitude = float(data[9])
-    utm_data = convertToUTM(custom_gps_msg.latitude, custom_gps_msg.longitude)
-    custom_gps_msg.utm_easting, custom_gps_msg.utm_northing = utm_data[0], utm_data[1]
-    custom_gps_msg.zone, custom_gps_msg.letter = utm_data[2], utm_data[3]
-
-def main():
-    rospy.init_node('gps_publisher_node')
-    rospy.logdebug('See expected launch format: roslaunch gps_driver driver.launch port:=/dev/ttyUSB0')
-    args = rospy.myargv(argv=sys.argv)
-
-    serial_port = None
-    port_name = rospy.get_param('~port',"/dev/ttyUSB0")
-    baud_rate = rospy.get_param('~baudrate', 4800)
-    try:
-        serial_port = serial.Serial(port_name, baud_rate, timeout=1.0)
-        rospy.logdebug('GPS sensor has been initialized on port', port_name)
-    except serial.serialutil.SerialException as e:
-        rospy.logerr('SerialException: ' + str(e))
-        sys.exit(1)
-
-    publ = rospy.Publisher('/gps', Customgps, queue_size=10)
-
-    rate = rospy.Rate(10)
-    while not rospy.is_shutdown():
-        try:
-            line = str(serial_port.readline())[2:]
-            rospy.loginfo(line)
-            parse_line(line, publ)
-        except serial.serialutil.SerialException as e:
-            rospy.logerr('SerialException: ' + str(e))
-        rate.sleep()
-
-    serial_port.close()
+def isGPGGAinString(inputString):
+    return "$GPGGA" in inputString
 
 if __name__ == '__main__':
+    rospy.init_node('gps_driver')
+    serialPortAddr = rospy.get_param('~port', '/dev/ttyUSB0')
+    serialPort = serial.Serial(serialPortAddr, 4800)
+    pub = rospy.Publisher('/gps', Customgps, queue_size=10)
+
     try:
-        main()
-    except Exception as e:
-        rospy.logerr('Error: An unexpected error has occurred\n', str(e))
+        while not rospy.is_shutdown():
+            gpgga_Read = str(serialPort.readline())
+            if isGPGGAinString(gpgga_Read):
+                gpggaSplit = gpgga_Read.split(',')
+                UTC = gpggaSplit[1]
+                Latitude = float(gpggaSplit[2])
+                LatitudeDir = str(gpggaSplit[3])
+                Longitude = float(gpggaSplit[4])
+                LongitudeDir = str(gpggaSplit[5])
+                Altitude = float(gpggaSplit[9])
+                HDOP = float(gpggaSplit[8])
+                LatitudeDec = lat_degMinstoDec(Latitude)
+                LongitudeDec = long_degMinstoDec(Longitude)
+                LatitudeSigned = LatLongSign(LatitudeDec, LatitudeDir)
+                LongitudeSigned = LatLongSign(LongitudeDec, LongitudeDir)
+                UTM_Vals = convertToUTM(LatitudeSigned, LongitudeSigned)
+                Current_Time = UTCtoUTCEpoch(UTC)
+                rospy.loginfo('publishing data')
+                gps_msg = Customgps()
+                gps_msg.header.frame_id = 'GPS1_Frame'
+                gps_msg.header.stamp = rospy.Time(int(time.time()), int((time.time() % 1) * 1e9))
+                gps_msg.latitude = Latitude
+                gps_msg.longitude = Longitude
+                gps_msg.altitude = Altitude
+                gps_msg.utm_easting = UTM_Vals[0]
+                gps_msg.utm_northing = UTM_Vals[1]
+                gps_msg.zone = int(UTM_Vals[2])
+                gps_msg.letter = UTM_Vals[3]
+                gps_msg.hdop = HDOP
+                gps_msg.gpgga_read = gpgga_Read
+                gps_msg.header.stamp = rospy.Time.now()
+                pub.publish(gps_msg)
+
+            rospy.sleep(1)
+
+    except rospy.ROSInterruptException:
+        serialPort.close()
+
+    except serial.serialutil.SerialException:
+        rospy.loginfo("Shutting down node")
