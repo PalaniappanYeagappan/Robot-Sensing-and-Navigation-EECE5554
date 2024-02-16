@@ -2,55 +2,48 @@
 #!/usr/bin/env python3
 
 import rosbag
-import pandas as pd
 import numpy as np
-from bagpy import bagreader
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
 
-def process_bag_data(bag_file, topic='/gps'):
-    reader = bagreader(bag_file)
-    data = reader.message_by_topic(topic)
-    df = pd.read_csv(data)
+def read_rosbag(bag_file, topic='/gps'):
+    bag = rosbag.Bag(bag_file)
+    data = {'easting': [], 'northing': [], 'altitude': [], 'time': []}
 
-    easting = df['utm_easting']
-    northing = df['utm_northing']
-    altitude = df['altitude']
-    time = df['Time']
+    for topic, msg, t in bag.read_messages(topics=[topic]):
+        data['easting'].append(msg.utm_easting)
+        data['northing'].append(msg.utm_northing)
+        data['altitude'].append(msg.altitude)
+        data['time'].append(msg.header.stamp.to_sec())
 
-    first_easting, first_northing = easting.iloc[0], northing.iloc[0]
-    easting -= first_easting
-    northing -= first_northing
+    bag.close()
 
-    centroid_easting, centroid_northing = np.mean(easting), np.mean(northing)
-    deviation_easting, deviation_northing = easting - centroid_easting, northing - centroid_northing
+    # Convert lists to numpy arrays
+    for key in data:
+        data[key] = np.array(data[key])
 
-    processed_data = {
-        'easting': easting,
-        'northing': northing,
-        'altitude': altitude,
-        'time': time,
-        'centroid_easting': centroid_easting,
-        'centroid_northing': centroid_northing,
-        'deviation_easting': deviation_easting,
-        'deviation_northing': deviation_northing
-    }
+    return data
 
-    print("Centroid Easting:", centroid_easting)
-    print("Centroid Northing:", centroid_northing)
-    print("Deviation in Easting:", deviation_easting)
-    print("Deviation in Northing:", deviation_northing)
+def compute_centroid(data):
+    centroid = np.mean(data, axis=0)
+    return centroid
 
-    return processed_data
+def compute_offset(centroid_unocc, centroid_occ):
+    offset = centroid_occ - centroid_unocc
+    print("Total Offset (Easting, Northing):", offset)
+    return offset
 
-ros_topic = '/gps'
+def compute_deviation(data, centroid):
+    deviation = data - centroid
+    return deviation
 
-stationary_data_uno = process_bag_data('/home/palaniappan_yeagappan/gnss/data/stationary_unocc.bag', ros_topic)
-stationary_data_o = process_bag_data('/home/palaniappan_yeagappan/gnss/data/stationary_occ.bag', ros_topic)
-walking_data = process_bag_data('/home/palaniappan_yeagappan/gnss/sdata/walking_unocc.bag', ros_topic)
-
-def plot_scatter(x, y, color, label, marker):
-    plt.scatter(x, y, c=color, label=label, marker=marker)
+def plot_histogram(ax, data, bins, color, alpha, label, xlabel, ylabel, title):
+    ax.hist(data, bins=bins, color=color, alpha=alpha, label=label)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(True)
 
 def plot_line(x, y, color, linestyle, label):
     slope, intercept, _, _, _ = linregress(x, y)
@@ -58,70 +51,133 @@ def plot_line(x, y, color, linestyle, label):
     y_fit = slope * x_fit + intercept
     plt.plot(x_fit, y_fit, color=color, linestyle=linestyle, label=label)
 
-def plot_histogram(data, bins, color, alpha, label, xlabel, ylabel, title):
-    plt.hist(data, bins=bins, color=color, alpha=alpha, label=label)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.title(title)
+# Bag files
+bag_file_occluded = '/home/palaniappan_yeagappan/gnss/data/Occluded_gngga.bag'
+bag_file_open = '/home/palaniappan_yeagappan/gnss/data/Open_Gngga.bag'
+bag_file_walking = '/home/palaniappan_yeagappan/gnss/data/Walking_Gngga.bag'
 
-def plot_altitude_time(time, altitude, color, label, marker):
-    plt.plot(time.values, altitude.values, color=color, label=label, marker=marker)
-    plt.xlabel("Time (sec)")
-    plt.ylabel("Altitude (m)")
-    plt.legend()
+# Process Occluded bag file
+data_occluded = read_rosbag(bag_file_occluded)
+
+# Process Open bag file
+data_open = read_rosbag(bag_file_open)
+
+# Process Walking bag file
+data_walking = read_rosbag(bag_file_walking)
+
+# Calculate centroids and offsets
+centroid_open = compute_centroid(np.column_stack((data_open['easting'], data_open['northing'])))
+centroid_occluded = compute_centroid(np.column_stack((data_occluded['easting'], data_occluded['northing'])))
+offset = compute_offset(centroid_open, centroid_occluded)
+
+# Calculate deviations from centroids
+deviation_open = compute_deviation(np.column_stack((data_open['easting'], data_open['northing'])), centroid_open)
+deviation_occluded = compute_deviation(np.column_stack((data_occluded['easting'], data_occluded['northing'])), centroid_occluded)
+deviation_walking = compute_deviation(np.column_stack((data_walking['easting'], data_walking['northing'])), centroid_occluded)
 
 # Plotting
+
+# Stationary northing vs. easting scatterplot
 plt.figure(figsize=(8, 6))
-plot_scatter(stationary_data_uno['deviation_easting'], stationary_data_uno['deviation_northing'], 'red', 'Not Occluded', 'x')
-plot_scatter(stationary_data_o['deviation_easting'], stationary_data_o['deviation_northing'], 'blue', 'Occluded', '*')
-plt.xlabel("UTM Easting (m)")
-plt.ylabel("UTM Northing (m)")
-plt.legend()
+plt.scatter(deviation_open[:, 0], deviation_open[:, 1], color='red', label='Open', marker='x')
+plt.scatter(deviation_occluded[:, 0], deviation_occluded[:, 1], color='blue', label='Occluded', marker='*')
+plt.xlabel("Deviation in Easting (m)")
+plt.ylabel("Deviation in Northing (m)")
 plt.title("Stationary Northing vs. Easting Scatterplot")
+plt.text(centroid_open[0], centroid_open[1], f"Total Offset: {offset}", fontsize=12, color='green', ha='center')
 plt.grid(True)
+plt.legend()
 plt.show()
 
+# Stationary altitude vs. time plot
 plt.figure(figsize=(8, 6))
-plot_altitude_time(stationary_data_uno['time_data'], stationary_data_uno['altitude_data'], 'red', 'Not Occluded', 'x')
-plot_altitude_time(stationary_data_o['time_data'], stationary_data_o['altitude_data'], 'blue', 'Occluded', '*')
+plt.plot(data_open['time'], data_open['altitude'], color='red', label='Open', marker='x')
+plt.plot(data_occluded['time'], data_occluded['altitude'], color='blue', label='Occluded', marker='*')
 plt.title("Stationary Altitude")
+plt.xlabel("Time (sec)")
+plt.ylabel("Altitude (m)")
 plt.grid(True)
+plt.legend()
 plt.show()
 
-plt.figure(figsize=(12, 6))
-plt.subplot(1, 2, 1)
-plot_histogram(stationary_data_uno['deviation_easting'], 30, 'red', 1, 'Not Occluded', "UTM Easting (m)", "Frequency", "Stationary Easting Histogram (Not Occluded)")
+# Stationary histogram plots for position from the centroid
+fig, axes = plt.subplots(1, 2, figsize=(12, 6))
 
-plt.subplot(1, 2, 2)
-plot_histogram(stationary_data_o['deviation_easting'], 30, 'blue', 1, 'Occluded', "UTM Easting (m)", "Frequency", "Stationary Easting Histogram (Occluded)")
+plot_histogram(axes[0], deviation_open[:, 0], bins=30, color='red', alpha=0.5, label='Open',
+               xlabel='Deviation in Position (m)', ylabel='Frequency', title='Stationary Position Histogram (Open)')
+
+plot_histogram(axes[1], deviation_occluded[:, 0], bins=30, color='blue', alpha=0.5, label='Occluded',
+               xlabel='Deviation in Position (m)', ylabel='Frequency', title='Stationary Position Histogram (Occluded)')
 
 plt.tight_layout()
 plt.show()
 
 # Euclidean distance histograms
-euclidean_distance_uno = np.sqrt(stationary_data_uno['deviation_easting']**2 + stationary_data_uno['deviation_northing']**2)
-euclidean_distance_o = np.sqrt(stationary_data_o['deviation_easting']**2 + stationary_data_o['deviation_northing']**2)
+euclidean_distance_open = np.sqrt(deviation_open[:, 0]**2 + deviation_open[:, 1]**2)
+euclidean_distance_occluded = np.sqrt(deviation_occluded[:, 0]**2 + deviation_occluded[:, 1]**2)
 
-plt.figure(figsize=(8, 6))
-plot_histogram(euclidean_distance_uno, 30, 'red', 1, 'Not Occluded', "Euclidean Distance", "Frequency", "Euclidean Distance Histogram")
-plot_histogram(euclidean_distance_o, 30, 'blue', 1, 'Occluded', "Euclidean Distance", "Frequency", "Euclidean Distance Histogram")
+plt.figure(figsize=(12, 6))
+# Plotting the histogram for open cases
+plt.subplot(2, 2, 1)  # 2 rows, 2 columns, subplot 1
+plot_histogram(plt.gca(), euclidean_distance_open, bins=30, color='red', alpha=0.5, label='Open',
+               xlabel='Euclidean Distance', ylabel='Frequency', title='Euclidean Distance Histogram (Open)')
+
+# Plotting the second histogram for occluded cases
+plt.subplot(2, 2, 2)  # 2 rows, 2 columns, subplot 2
+plot_histogram(plt.gca(), euclidean_distance_occluded, bins=30, color='blue', alpha=0.5, label='Occluded',
+               xlabel='Euclidean Distance', ylabel='Frequency', title='Euclidean Distance Histogram (Occluded)')
+
+# Plotting the third histogram for open cases (on a new row)
+plt.subplot(2, 1, 2)  # 2 rows, 1 column, subplot 3
+plot_histogram(plt.gca(), euclidean_distance_open, bins=30, color='red', alpha=0.5, label='Open',
+               xlabel='Euclidean Distance', ylabel='Frequency', title='Euclidean Distance Histogram')
+
+plot_histogram(plt.gca(), euclidean_distance_occluded, bins=30, color='blue', alpha=0.5, label='Occluded',
+               xlabel='Euclidean Distance', ylabel='Frequency', title='Euclidean Distance Histogram')
+
 plt.grid(True)
 plt.show()
 
-# Moving data scatterplot with line of best fit
+# Moving (walking) data northing vs. easting scatterplot with line of best fit
 plt.figure(figsize=(8, 6))
-plot_scatter(walking_data['deviation_easting'], walking_data['deviation_northing'], 'red', 'Moving', 'o')
-# plot_line(walking_data['deviation_easting'], walking_data['deviation_northing'], 'black', '--', 'Line of Best Fit')
-plt.xlabel("UTM Easting (m)")
-plt.ylabel("UTM Northing (m)")
+plt.scatter(data_walking['easting'], data_walking['northing'], color='green', label='Walking', marker='o')
+plot_line(data_walking['easting'], data_walking['northing'], 'red', '--', 'Line of Best Fit')
+plt.xlabel("Easting (m)")
+plt.ylabel("Northing (m)")
+plt.title("Moving (Walking) Data Scatterplot")
+plt.grid(True)
 plt.legend()
-plt.title("Moving Data Scatterplot")
+plt.show()
+
+# Moving (walking) data altitude vs. time plot
+plt.figure(figsize=(8, 6))
+plt.plot(data_walking['time'], data_walking['altitude'], color='green', label='Walking Data', marker='o')
+plt.title("Moving (Walking) Data Altitude")
+plt.xlabel("Time (sec)")
+plt.ylabel("Altitude (m)")
 plt.grid(True)
 plt.show()
 
-# Moving data altitude vs. time plot
-plt.figure(figsize=(8, 6))
-plot_altitude_time(walking_data['time_data'], walking_data['altitude_data'], 'red', 'Walking Data', 'o')
-plt.title("Moving Data Altitude")
-plt.grid(True)
-plt.show()
+# Calculate RMSE for stationary datasets
+rmse_open = np.sqrt(np.mean((deviation_open[:, 0])**2 + (deviation_open[:, 1])**2))
+rmse_occluded = np.sqrt(np.mean((deviation_occluded[:, 0])**2 + (deviation_occluded[:, 1])**2))
+
+print("RMSE for Open stationary dataset:", rmse_open)
+print("RMSE for Occluded stationary dataset:", rmse_occluded)
+
+print(centroid_open)
+print(centroid_occluded)
+
+# Fit a line to the walking data
+slope, intercept, _, _, _ = linregress(data_walking['easting'], data_walking['northing'])
+
+# Compute predicted y-values
+y_fit = slope * data_walking['easting'] + intercept
+
+# Compute residuals
+residuals = data_walking['northing'] - y_fit
+
+# Compute RMSE of residuals
+rmse_walk_line = np.sqrt(np.mean(residuals**2))
+
+print("RMSE from Line of Best Fit to Walking Data:", rmse_walk_line)
