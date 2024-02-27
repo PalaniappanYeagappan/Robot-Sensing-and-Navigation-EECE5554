@@ -101,8 +101,8 @@ if __name__ == '__main__':
                 custom_gps_msg.hdop = HDOP
                 custom_gps_msg.gpgga_read = gpgga_Read
 
-                print("secs ", rospy.Time(int(time.time())))
-                print("nsecs ", rospy.Time(int((time.time() % 1) * 1e9)))
+                print("secs ", secs)
+                print("nsecs ", nsecs)
                 print("Latitude ", float(LatitudeSigned))
                 print("Longitude ", float(LongitudeSigned))
                 print("Easting ", UTM_Vals[0])
