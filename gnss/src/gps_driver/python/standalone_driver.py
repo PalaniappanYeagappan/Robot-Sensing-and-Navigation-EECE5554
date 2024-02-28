@@ -43,13 +43,15 @@ def UTCtoUTCEpoch(UTC):
     hours = int(UTC[0:2])
     minutes = int(UTC[2:4])
     seconds = float(UTC[4:6])
+    nsecs = float(UTC[6:9])
     millisecond = float(UTC[7:])
+    
     UTCinSecs = hours * 3600 + minutes * 60 + seconds + millisecond / 1000.0
     TimeSinceEpoch = time.time()
     TimeSinceEpochBOD = float(TimeSinceEpoch - (TimeSinceEpoch % (24*60*60)) )
     CurrentTime = TimeSinceEpochBOD + UTCinSecs
     CurrentTimeSec = int(CurrentTime)
-    CurrentTimeNsec = int((((CurrentTime - CurrentTimeSec) % 1) * 1e9 -19))
+    CurrentTimeNsec = int(nsecs * 1e9)
 
     return [CurrentTimeSec, CurrentTimeNsec]
 
