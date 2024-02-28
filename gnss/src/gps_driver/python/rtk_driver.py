@@ -40,14 +40,16 @@ def UTCtoUTCEpoch(UTC):
     UTC = str(UTC)
     hours = int(UTC[0:2])
     minutes = int(UTC[2:4])
-    seconds = float(UTC[4:])
-    UTCinSecs = hours * 3600 + minutes * 60 + seconds
+    seconds = float(UTC[4:6])
+    nsecs = float(UTC[6:9])
+    millisecond = float(UTC[7:])
+    
+    UTCinSecs = hours * 3600 + minutes * 60 + seconds + millisecond / 1000.0
     TimeSinceEpoch = time.time()
-    UTCinSecs = float(UTC)
-    TimeSinceEpochBOD = float(TimeSinceEpoch - UTCinSecs)
+    TimeSinceEpochBOD = float(TimeSinceEpoch - (TimeSinceEpoch % (24*60*60)) )
     CurrentTime = TimeSinceEpochBOD + UTCinSecs
     CurrentTimeSec = int(CurrentTime)
-    CurrentTimeNsec = float((CurrentTime - CurrentTimeSec) * 1e9)
+    CurrentTimeNsec = int(nsecs * 1e9)
 
     return [CurrentTimeSec, CurrentTimeNsec]
 
@@ -86,11 +88,11 @@ if __name__ == '__main__':
                 LatitudeSigned = LatLongSign(LatitudeDec, LatitudeDir)
                 LongitudeSigned = LatLongSign(LongitudeDec, LongitudeDir)
                 UTM_Vals = convertToUTM(LatitudeSigned, LongitudeSigned)
-                Current_Time = UTCtoUTCEpoch(UTC)
+                CurrentTimeSec, CurrentTimeNsec = UTCtoUTCEpoch(UTC)
                 rospy.loginfo('publishing data')
                 gps_msg = Customrtk()
                 gps_msg.header.frame_id = 'GPS1_Frame'
-                gps_msg.header.stamp = rospy.Time(int(time.time()), int((time.time() % 1) * 1e9))
+                gps_msg.header.stamp = rospy.Time(CurrentTimeSec, CurrentTimeNsec)
                 gps_msg.latitude = float(Latitude)
                 gps_msg.longitude = float(Longitude)
                 gps_msg.altitude = Altitude
