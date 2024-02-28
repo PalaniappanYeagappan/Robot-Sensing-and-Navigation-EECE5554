@@ -7,6 +7,8 @@ from gps_driver.msg import Customgps
 from std_msgs.msg import Header
 import serial
 import sys
+import math
+from datetime import datetime, timezone
 
 custom_gps_msg = Customgps()
 
@@ -100,6 +102,7 @@ if __name__ == '__main__':
                 custom_gps_msg.letter = UTM_Vals[3]
                 custom_gps_msg.hdop = HDOP
                 custom_gps_msg.gpgga_read = gpgga_Read
+
 
                 print("secs ", secs)
                 print("nsecs ", nsecs)

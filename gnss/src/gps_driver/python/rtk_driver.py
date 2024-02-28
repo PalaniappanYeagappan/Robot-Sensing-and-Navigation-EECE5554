@@ -7,6 +7,7 @@ from gps_driver.msg import Customrtk
 from std_msgs.msg import Header
 import math
 import time
+import sys
 from datetime import datetime, timezone
 
 def lat_degMinstoDec(latitude):
@@ -55,13 +56,21 @@ def isGNGGAinString(inputString):
 
 if __name__ == '__main__':
     rospy.init_node('rtk_driver')
-    serialPortAddr = rospy.get_param('~port', '/dev/pts/4')
-    serialPort = serial.Serial(serialPortAddr, 4800)
+    args = rospy.myargv(argv=sys.argv)
+    if len(args) < 2:
+        print("Usage: standalone_driver.py <port>")
+        sys.exit(1)
+        
+    # Read port name from command line arguments
+    port_param = args[1]
+    
+    serial_port = serial.Serial(port_param, 4800)
     pub = rospy.Publisher('gps', Customrtk, queue_size=10)
+    rate = rospy.Rate(10)
 
     try:
         while not rospy.is_shutdown():
-            gngga_Read = str(serialPort.readline())
+            gngga_Read = str(serial_port.readline())
             if isGNGGAinString(gngga_Read):
                 gnggaSplit = gngga_Read.split(',')
                 UTC = gnggaSplit[1]
@@ -94,10 +103,10 @@ if __name__ == '__main__':
                 gps_msg.header.stamp = rospy.Time.now()
                 pub.publish(gps_msg)
 
-            rospy.sleep(1)
+            rate.sleep()
 
     except rospy.ROSInterruptException:
-        serialPort.close()
+        serial_port.close()
 
     except serial.serialutil.SerialException:
         rospy.loginfo("Shutting down node")
