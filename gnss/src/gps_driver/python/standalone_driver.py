@@ -7,6 +7,8 @@ from gps_driver.msg import Customgps
 from std_msgs.msg import Header
 import serial
 import sys
+import math
+from datetime import datetime, timezone
 
 custom_gps_msg = Customgps()
 
@@ -66,7 +68,7 @@ if __name__ == '__main__':
     port_param = args[1]
     
     serial_port = serial.Serial(port_param, 4800)
-    pub = rospy.Publisher('/gps', Customgps, queue_size=10)
+    pub = rospy.Publisher('gps', Customgps, queue_size=10)
     rate = rospy.Rate(10)
 
     try:
@@ -103,8 +105,8 @@ if __name__ == '__main__':
 
                 print("secs ", rospy.Time(int(time.time())))
                 print("nsecs ", rospy.Time(int((time.time() % 1) * 1e9)))
-                print("Latitude ", float(Latitude))
-                print("Longitude ", float(Longitude))
+                print("Latitude ", float(LatitudeSigned))
+                print("Longitude ", float(LongitudeSigned))
                 print("Easting ", UTM_Vals[0])
                 print("Northing ", UTM_Vals[1])
                 print("Zone", UTM_Vals[2])
