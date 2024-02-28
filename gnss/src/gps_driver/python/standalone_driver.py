@@ -84,13 +84,14 @@ if __name__ == '__main__':
                 LongitudeDir = str(gpggaSplit[5])
                 Altitude = float(gpggaSplit[9])
                 HDOP = float(gpggaSplit[8])
-                nsecs,secs=230000000.0,1708914898
+                nsecs,secs=230000000.0,1709087698
                 LatitudeDec = lat_degMinstoDec(Latitude)
                 LongitudeDec = long_degMinstoDec(Longitude)
                 LatitudeSigned = LatLongSign(LatitudeDec, LatitudeDir)
                 LongitudeSigned = LatLongSign(LongitudeDec, LongitudeDir)
                 UTM_Vals = convertToUTM(LatitudeSigned, LongitudeSigned)
                 CurrentTimeSec, CurrentTimeNsec = UTCtoUTCEpoch(UTC)
+                
                 custom_gps_msg.header.frame_id = 'GPS1_Frame'
                 custom_gps_msg.header.stamp = rospy.Time(secs, nsecs)
                 custom_gps_msg.latitude = float(LatitudeSigned)
@@ -102,7 +103,6 @@ if __name__ == '__main__':
                 custom_gps_msg.letter = UTM_Vals[3]
                 custom_gps_msg.hdop = HDOP
                 custom_gps_msg.gpgga_read = gpgga_Read
-
 
                 print("secs ", secs)
                 print("nsecs ", nsecs)
