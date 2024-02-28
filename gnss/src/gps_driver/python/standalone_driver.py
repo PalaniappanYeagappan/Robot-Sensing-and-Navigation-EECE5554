@@ -66,7 +66,7 @@ if __name__ == '__main__':
     port_param = args[1]
     
     serial_port = serial.Serial(port_param, 4800)
-    pub = rospy.Publisher('/gps', Customgps, queue_size=10)
+    pub = rospy.Publisher('gps', Customgps, queue_size=10)
     rate = rospy.Rate(10)
 
     try:
