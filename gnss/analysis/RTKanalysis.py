@@ -3,16 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
 
-def process_bag_data(bag_file, topic='/gps'):
-    bag = rosbag.Bag(bag_file)
-    data = {'easting': [], 'northing': [], 'altitude': [], 'time': []}
-
-    for topic, msg, t in bag.read_messages(topics=[topic]):
-import rosbag
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.stats import linregress
-
 def read_rosbag(bag_file, topic='/gps'):
     bag = rosbag.Bag(bag_file)
     data = {'easting': [], 'northing': [], 'altitude': [], 'time': []}
