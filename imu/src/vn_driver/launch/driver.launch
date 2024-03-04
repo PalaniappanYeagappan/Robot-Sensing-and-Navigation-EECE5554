@@ -1,0 +1,5 @@
+<launch>
+    <arg name="port"/>
+    <arg name="baud" default="115200" />
+    <node name="vn_driver_node" pkg="vn_driver" type="Poojith_driver.py" output="screen" args="$(arg port)"/>
+</launch>
