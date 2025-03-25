@@ -21,7 +21,7 @@ This repository contains homework assignments and project files for the EECE 555
 - Loop closure detection
 - Non-Linear optimization
 
-## Project Highlights (Check final project in this Repo: [Project Repository] (https://github.com/PalaniappanYeagappan/LIO_SAM)
+## Project Highlights (Check final project in this Repo: [Project Repository](https://github.com/PalaniappanYeagappan/LIO_SAM)
 
 The final project focused on implementing and analyzing a LIO-SLAM system with the following key features:
 
